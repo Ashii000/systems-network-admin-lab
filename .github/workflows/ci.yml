@@ -1,0 +1,36 @@
+name: CI - Validate, Build and Test Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate project structure and Dockerfile
+        run: |
+          test -f app/index.html
+          test -f docker/Dockerfile
+          test -f docs/README.md
+          grep -q "University of Sindh" app/index.html
+          grep -q "FROM nginx:alpine" docker/Dockerfile
+          echo "All repository files validated successfully."
+
+      - name: Build Docker image
+        run: |
+          docker build -t bsit-lab07-web:${{ github.sha }} -f docker/Dockerfile .
+
+      - name: Run container and execute HTTP smoke test
+        run: |
+          docker run -d --name test-web -p 8080:80 bsit-lab07-web:${{ github.sha }}
+          sleep 3
+          curl -f http://localhost:8080 | grep -q "2k23/IT/36"
+          echo "Container HTTP 200 and student metadata verification passed!"
+          docker stop test-web && docker rm test-web
